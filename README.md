@@ -34,4 +34,19 @@
   ```
 
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+### Testing
+1. Start containers and wait untill they are on:
+  ```sh
+  docker-compose up -d
+  ```
+2. Open a shell in the app container:
+  ```sh
+  docker exec -it api_container sh
+  ```
+3. Start tests:
+  ```sh
+  pytest -s -v
+  ```
+
+### Path to single ORM query
+/src/menu/crud.py::count_submenus_and_dishes_in_one_request
