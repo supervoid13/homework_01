@@ -27,13 +27,10 @@
   ```sh
   pip install -r requirements.txt
   ```
-5. Before starting an application change directory to **src** to avoid possible problems with importing packages inside .py files:
+
+5. Start the application:
   ```sh
-  cd src
-  ```
-6. Start the application:
-  ```sh
-  uvicorn main:app
+  uvicorn src.main:app
   ```
 
 

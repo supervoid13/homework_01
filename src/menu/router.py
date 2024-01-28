@@ -3,15 +3,14 @@ from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from menu.schemas import (MenuCreateUpdate, MenuRetrieve, SubmenuRetrieve,
-                          SubmenuCreateUpdate, DishRetrieve, DishCreateUpdate)
-from menu.utils import get_dishes_count_from_menu
-from database import get_db
-from menu import crud
-
+from src.menu.schemas import (MenuCreateUpdate, MenuRetrieve, SubmenuRetrieve,
+                              SubmenuCreateUpdate, DishRetrieve, DishCreateUpdate)
+from src.menu.utils import get_dishes_count_from_menu
+from src.database import get_db
+from src.menu import crud
 
 router = APIRouter(
-    prefix="/api/v1/menus"
+    prefix="/api/v1/menus",
 )
 
 
@@ -22,6 +21,7 @@ router = APIRouter(
 
 @router.get("/", response_model=List[MenuRetrieve])
 def retrieve_menus(session: Session = Depends(get_db)):
+    print(router)
     menus = crud.get_menus(session)
 
     menus_retrieve = []
@@ -36,16 +36,32 @@ def retrieve_menus(session: Session = Depends(get_db)):
     return menus_retrieve
 
 
+# @router.get("/{menu_id}", response_model=MenuRetrieve)
+# def retrieve_menu(menu_id: str, session: Session = Depends(get_db)):
+#     menu = crud.get_menu_by_pk(session, menu_id)
+#
+#     menu_retrieve = dict(
+#         id=menu.id,
+#         title=menu.title,
+#         description=menu.description,
+#         submenus_count=len(menu.submenus),
+#         dishes_count=get_dishes_count_from_menu(menu))
+#
+#     return menu_retrieve
+
+# Retrieving menu endpoint which is using one ORM query to get data
 @router.get("/{menu_id}", response_model=MenuRetrieve)
 def retrieve_menu(menu_id: str, session: Session = Depends(get_db)):
-    menu = crud.get_menu_by_pk(session, menu_id)
+    response = crud.count_submenus_and_dishes_in_one_request(session, menu_id)
+    menu = response[0]
+    submenus_count = response[1]
+    dishes_count = response[2]
 
-    menu_retrieve = dict(
-        id=menu.id,
-        title=menu.title,
-        description=menu.description,
-        submenus_count=len(menu.submenus),
-        dishes_count=get_dishes_count_from_menu(menu))
+    menu_retrieve = dict(id=menu.id,
+                         title=menu.title,
+                         description=menu.description,
+                         submenus_count=submenus_count,
+                         dishes_count=dishes_count)
 
     return menu_retrieve
 

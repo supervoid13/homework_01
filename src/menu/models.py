@@ -2,13 +2,12 @@ import uuid
 from typing import Annotated
 
 from sqlalchemy import ForeignKey
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
-from database import engine
+from src.database import engine
 
 
-class Base(AsyncAttrs, DeclarativeBase):
+class Base(DeclarativeBase):
     pass
 
 
@@ -52,10 +51,8 @@ class Dish(Base):
 
 
 def init_db():
-    engine.echo = False
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    engine.echo = True
 
 
 init_db()

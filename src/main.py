@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from menu.router import router as menu_router
+from src.menu.router import router as menu_router
 
 app = FastAPI(
     title="Menu API"

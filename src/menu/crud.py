@@ -1,11 +1,10 @@
-from fastapi import Depends
 from fastapi.exceptions import HTTPException
 from sqlalchemy import select, delete
+from sqlalchemy.sql import func, distinct
 from sqlalchemy.orm import Session
 
-from menu.models import Menu, Submenu, Dish
-from menu.schemas import MenuCreateUpdate, SubmenuCreateUpdate, DishCreateUpdate
-from menu.utils import get_dishes_count_from_menu
+from src.menu.models import Menu, Submenu, Dish
+from src.menu.schemas import MenuCreateUpdate, SubmenuCreateUpdate, DishCreateUpdate
 
 
 # ////////////////////////////////////////////////////////////////////////////
@@ -119,11 +118,14 @@ def delete_submenu_by_pk(session: Session, submenu_id: str):
 
 
 def get_dishes(session: Session, submenu_id: str):
-    query = select(Dish).where(Dish.submenu_id == submenu_id)
-    result = session.execute(query)
-    dishes = result.scalars().all()
+    try:
+        query = select(Dish).where(Dish.submenu_id == submenu_id)
+        result = session.execute(query)
+        dishes = result.scalars().all()
 
-    return dishes
+        return dishes
+    except (Exception,):
+        return []
 
 
 def get_dish_by_pk(session: Session, dish_id: str):
@@ -166,3 +168,16 @@ def delete_dish_by_pk(session: Session, dish_id: str):
         "status": True,
         "message": "The dish has been deleted"
     }
+
+
+def count_submenus_and_dishes_in_one_request(session: Session, menu_id: str):
+    response = (session.query(Menu,
+                              func.count(distinct(Submenu.id).label("submenus_count")),
+                              func.count(distinct(Dish.id)).label("dishes_count"))
+                .join(Menu.submenus, isouter=True).join(Submenu.dishes, isouter=True)
+                .where(Menu.id == menu_id)
+                .group_by(Menu.id, Menu.title, Menu.description)).first()
+    if not response:
+        raise HTTPException(status_code=404, detail="menu not found")
+
+    return response
