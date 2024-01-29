@@ -1,9 +1,10 @@
 import uuid
-from conftest import client, override_get_db, test_data
+from conftest import client, override_get_db, test_data, TestingSessionLocal
 
+import utils
 from src.database import get_db
 from src.main import app
-import utils
+from src.menu.crud import get_dishes
 
 app.dependency_overrides[get_db] = override_get_db
 
@@ -101,5 +102,6 @@ def test_delete_dish():
 
     assert response.status_code == 200
 
-    body = client.get(f"/api/v1/menus/{menu_id}/submenus/{submenu_id}/dishes/").json()
-    assert body == []
+    with TestingSessionLocal() as session:
+        body = get_dishes(session, submenu_id)
+        assert body == []
