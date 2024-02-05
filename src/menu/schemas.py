@@ -1,5 +1,3 @@
-import uuid
-
 from pydantic import BaseModel
 
 
@@ -9,7 +7,7 @@ class MenuCreateUpdate(BaseModel):
 
 
 class MenuRetrieve(BaseModel):
-    id: uuid.UUID
+    id: str
     title: str
     description: str
     submenus_count: int
@@ -22,14 +20,14 @@ class SubmenuCreateUpdate(BaseModel):
 
 
 class SubmenuRetrieve(BaseModel):
-    id: uuid.UUID
+    id: str
     title: str
     description: str
     dishes_count: int
 
 
 class DishRetrieve(BaseModel):
-    id: uuid.UUID
+    id: str
     title: str
     description: str
     price: str
