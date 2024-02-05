@@ -1,0 +1,558 @@
+openapi: 3.0.3
+info:
+  title: Y_LAB
+  version: 1.0.11
+servers:
+  - url: http://localhost:8000/api/v1
+tags:
+  - name: menus
+    description: Everything about your menus, submenus and dishes
+
+paths:
+  /menus:
+    get:
+      tags:
+        - menus
+      summary: Return list of menus
+      description: DESCRIPTION
+      operationId: getListOfMenus
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Menu'
+        '422':
+          description: Validation Error
+    post:
+      tags:
+        - menus
+      summary: Create a menu
+      description: Add a new menu to the restaurant
+      operationId: addMenu
+      requestBody:
+        description: Create a new menu in the restaurant
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreateUpdate'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+        '422':
+          description: Validation Error
+  /menus/{menu_id}:
+    get:
+      tags:
+        - menus
+      summary: Return menu by ID
+      description: Returns a single menu
+      operationId: getMenuById
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu to return
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+        '404':
+          description: Menu not found
+        '422':
+          description: Validation Error
+
+    patch:
+      tags:
+        - menus
+      summary: Update an existing menu
+      description: Update an existing menu by Id
+      operationId: updateMenu
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update an existent menu in the restaurant
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreateUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+        '404':
+          description: Menu not found
+        '422':
+          description: Validation Error
+
+    delete:
+      tags:
+        - menus
+      summary: Delete menu by ID
+      description: Delete menu from the restaurant
+      operationId: deleteMenu
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of the menu that needs to be deleted
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          description: Menu not found
+        '422':
+          description: Validation Error
+
+  /menus/{menu_id}/submenus:
+    get:
+      tags:
+        - menus
+      summary: Return list of submenus
+      description: DESCRIPTION
+      operationId: getListOfSubmenus
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of the menu in which the submenus are located
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Submenu'
+        '422':
+          description: Validation Error
+    post:
+      tags:
+        - menus
+      summary: Create a submenu
+      description: Add a new submenu to the menu of a restaurant
+      operationId: addSubmenu
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of the menu
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Create a new submenu of menu with menu_id in the restaurant
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmenuCreateUpdate'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submenu'
+        '422':
+          description: Validation Error
+
+  /menus/{menu_id}/submenus/{submenu_id}:
+    get:
+      tags:
+        - menus
+      summary: Return submenu by ID
+      description: Returns a single submenu
+      operationId: getSubmenuById
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu to return
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submenu'
+        '404':
+          description: Submenu not found
+        '422':
+          description: Validation Error
+
+    patch:
+      tags:
+        - menus
+      summary: Update an existing submenu
+      description: Update an existing submenu by Id
+      operationId: updateSubmenu
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update an existent submenu in the menu
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmenuCreateUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Submenu'
+        '404':
+          description: Submenu not found
+        '422':
+          description: Validation Error
+
+    delete:
+      tags:
+        - menus
+      summary: Delete submenu by ID
+      description: Delete submenu from the menu
+      operationId: deleteSubmenu
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of the submenu that needs to be deleted
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          description: Submenu not found
+        '422':
+          description: Validation Error
+
+  /menus/{menu_id}/submenus/{submenu_id}/dishes:
+    get:
+      tags:
+        - menus
+      summary: Return list of dishes
+      description: DESCRIPTION
+      operationId: getListOfDishes
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Dish'
+        '422':
+          description: Validation Error
+    post:
+      tags:
+        - menus
+      summary: Create a dish
+      description: Add a new dish to the submenu of a restaurant
+      operationId: addDish
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Create a new dish of submenu with submenu_id in the restaurant
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DishCreateUpdate'
+        required: true
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dish'
+        '422':
+          description: Validation Error
+
+  /menus/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}:
+    get:
+      tags:
+        - menus
+      summary: Return dish by ID
+      description: Returns a single dish
+      operationId: getDishById
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu
+          required: true
+          schema:
+            type: string
+        - name: dish_id
+          in: path
+          description: ID of dish to return
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dish'
+        '404':
+          description: Dish not found
+        '422':
+          description: Validation Error
+
+    patch:
+      tags:
+        - menus
+      summary: Update an existing dish
+      description: Update an existing dish by Id
+      operationId: updateDish
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu
+          required: true
+          schema:
+            type: string
+        - name: dish_id
+          in: path
+          description: ID of dish to update
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update an existent dish in the restaurant
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DishCreateUpdate'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dish'
+        '404':
+          description: Dish not found
+        '422':
+          description: Validation Error
+
+    delete:
+      tags:
+        - menus
+      summary: Delete dish by ID
+      description: Delete dish from the submenu
+      operationId: deleteDish
+      parameters:
+        - name: menu_id
+          in: path
+          description: ID of menu
+          required: true
+          schema:
+            type: string
+        - name: submenu_id
+          in: path
+          description: ID of submenu
+          required: true
+          schema:
+            type: string
+        - name: dish_id
+          in: path
+          description: ID of the dish that needs to be deleted
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+        '404':
+          description: Dish not found
+        '422':
+          description: Validation Error
+
+components:
+  schemas:
+    Menu:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'bec3d1e0-4008-4231-bc9f-d70d4eb4ebf2'
+        title:
+          type: string
+          example: My menu
+        description:
+          type: string
+          example: My description
+        submenus_count:
+          type: integer
+          example: 3
+        dishes_count:
+          type: integer
+          example: 8
+    MenuCreateUpdate:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        title:
+          type: string
+          example: My menu
+        description:
+          type: string
+          example: My description
+
+    Submenu:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'bec3d1e0-4008-4231-bc9f-d70d4eb4ebf2'
+        title:
+          type: string
+          example: My submenu
+        description:
+          type: string
+          example: My description
+        dishes_count:
+          type: integer
+          example: 8
+    SubmenuCreateUpdate:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        title:
+          type: string
+          example: My submenu
+        description:
+          type: string
+          example: My description
+
+    Dish:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'bec3d1e0-4008-4231-bc9f-d70d4eb4ebf2'
+        title:
+          type: string
+          example: My dish
+        description:
+          type: string
+          example: My description
+    DishCreateUpdate:
+      required:
+        - title
+        - description
+      type: object
+      properties:
+        title:
+          type: string
+          example: My dish
+        description:
+          type: string
+          example: My description
