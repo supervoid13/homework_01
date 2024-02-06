@@ -14,6 +14,7 @@ from src.menu.dependencies import (
     get_menu_service,
     get_submenu_service,
 )
+from src.utils import get_url_from_api_route_name
 
 app.dependency_overrides[get_dish_service] = override_get_dish_service
 app.dependency_overrides[get_submenu_service] = override_get_submenu_service
@@ -26,8 +27,12 @@ def test_get_dishes():
     submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
     test_data['dish_data']['submenu_id'] = submenu_id
 
-    get_dishes_url = app.url_path_for('get_dishes', menu_id=menu_id, submenu_id=submenu_id)
+    get_dishes_url = get_url_from_api_route_name(app,
+                                                 'get_dishes',
+                                                 menu_id=menu_id,
+                                                 submenu_id=submenu_id)
     response = client.get(get_dishes_url)
+    print(get_dishes_url)
     assert response.status_code == 200
     assert response.json() == []
 
@@ -52,20 +57,22 @@ def test_get_dish():
     submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
     test_data['dish_data']['submenu_id'] = submenu_id
 
-    get_dish_url = app.url_path_for('get_dish',
-                                    menu_id=menu_id,
-                                    submenu_id=submenu_id,
-                                    dish_id=uuid.uuid4())
+    get_dish_url = get_url_from_api_route_name(app,
+                                               'get_dish',
+                                               menu_id=menu_id,
+                                               submenu_id=submenu_id,
+                                               dish_id=uuid.uuid4())
     response = client.get(get_dish_url)
     assert response.status_code == 404
     assert response.json() == {'detail': 'dish not found'}
 
     dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
 
-    get_dish_url = app.url_path_for('get_dish',
-                                    menu_id=menu_id,
-                                    submenu_id=submenu_id,
-                                    dish_id=dish_id)
+    get_dish_url = get_url_from_api_route_name(app,
+                                               'get_dish',
+                                               menu_id=menu_id,
+                                               submenu_id=submenu_id,
+                                               dish_id=dish_id)
     response = client.get(get_dish_url)
     assert response.status_code == 200
 
@@ -85,9 +92,10 @@ def test_add_dish():
     submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
     test_data['dish_data']['submenu_id'] = str(submenu_id)
 
-    add_dish_url = app.url_path_for('add_dish',
-                                    menu_id=menu_id,
-                                    submenu_id=submenu_id)
+    add_dish_url = get_url_from_api_route_name(app,
+                                               'add_dish',
+                                               menu_id=menu_id,
+                                               submenu_id=submenu_id)
     response = client.post(add_dish_url, json=test_data['dish_data'])
     assert response.status_code == 201
 
@@ -106,10 +114,12 @@ def test_update_dish():
     test_data['dish_data']['submenu_id'] = submenu_id
 
     dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
-    update_dish_url = app.url_path_for('update_dish',
-                                       menu_id=menu_id,
-                                       submenu_id=submenu_id,
-                                       dish_id=dish_id)
+
+    update_dish_url = get_url_from_api_route_name(app,
+                                                  'update_dish',
+                                                  menu_id=menu_id,
+                                                  submenu_id=submenu_id,
+                                                  dish_id=dish_id)
     response = client.patch(update_dish_url, json=test_data['update_dish_data'])
     assert response.status_code == 200
 
@@ -129,10 +139,12 @@ def test_delete_dish():
     test_data['dish_data']['submenu_id'] = submenu_id
 
     dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
-    delete_dish_url = app.url_path_for('delete_dish',
-                                       menu_id=menu_id,
-                                       submenu_id=submenu_id,
-                                       dish_id=dish_id)
+
+    delete_dish_url = get_url_from_api_route_name(app,
+                                                  'delete_dish',
+                                                  menu_id=menu_id,
+                                                  submenu_id=submenu_id,
+                                                  dish_id=dish_id)
     response = client.delete(delete_dish_url)
 
     assert response.status_code == 200

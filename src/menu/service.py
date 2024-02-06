@@ -6,6 +6,7 @@ from src.menu.exceptions import (
     NoSuchSubmenuError,
     RestaurantException,
 )
+from src.menu.models import Dish, Menu, Submenu
 from src.repositories import AbstractRepository
 
 
@@ -16,10 +17,10 @@ class RestaurantService:
     def __init__(self, repository: AbstractRepository):
         self.repository = repository
 
-    def retrieve_list(self) -> list:
+    def retrieve_list(self) -> list[Menu | Submenu | Dish]:
         return self.repository.retrieve_list()
 
-    def retrieve_one(self, pk: UUID):
+    def retrieve_one(self, pk: UUID) -> Menu | Submenu | Dish:
         obj = self.repository.retrieve_one(pk)
 
         if not obj:
@@ -27,13 +28,13 @@ class RestaurantService:
 
         return obj
 
-    def create_and_retrieve(self, data: dict):
+    def create_and_retrieve(self, data: dict) -> Menu | Submenu | Dish:
         pk = self.repository.create(data)
         obj = self.repository.retrieve_one(pk)
 
         return obj
 
-    def update_and_retrieve(self, pk: UUID, data: dict):
+    def update_and_retrieve(self, pk: UUID, data: dict) -> Menu | Submenu | Dish:
         self.repository.update(pk, data)
         obj = self.repository.retrieve_one(pk)
 

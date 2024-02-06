@@ -21,6 +21,8 @@ test_data = {
 
 DATABASE_URL_TEST = (f'postgresql+psycopg2://'
                      f'{DB_USER_TEST}:{DB_PASSWORD_TEST}@db_test:{DB_PORT_TEST}/{DB_NAME_TEST}')
+# DATABASE_URL_TEST = (f'postgresql+psycopg2://'
+#                      f'{DB_USER_TEST}:{DB_PASSWORD_TEST}@localhost:{DB_PORT_TEST}/postgres_test')
 
 engine_test = create_engine(
     url=DATABASE_URL_TEST,
@@ -41,7 +43,7 @@ def override_get_db(*args) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope='session', autouse=True)
-def setup_redis():
+def setup_redis() -> Generator:
     app.state.redis = Redis(host='redis_test', port=6379, db=0)
     yield
     app.state.redis.flushall()
@@ -49,7 +51,7 @@ def setup_redis():
 
 
 @pytest.fixture(scope='function', autouse=True)
-def setup_db():
+def setup_db() -> Generator:
     Base.metadata.create_all(engine_test)
     yield
     Base.metadata.drop_all(engine_test)

@@ -74,8 +74,8 @@ class Dish(Base):
         )
 
 
-def init_db():
-    Base.metadata.drop_all(bind=engine)
+def init_db() -> None:
+    Base.metadata.drop_all(bind=engine, checkfirst=True)
     Base.metadata.create_all(bind=engine)
 
 

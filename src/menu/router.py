@@ -10,6 +10,7 @@ from src.menu.dependencies import (
     get_submenu_service,
 )
 from src.menu.exceptions import NoSuchDishError, NoSuchMenuError, NoSuchSubmenuError
+from src.menu.responses import DISH_NOT_FOUND, MENU_NOT_FOUND, SUBMENU_NOT_FOUND
 from src.menu.schemas import (
     DishCreateUpdate,
     DishRetrieve,
@@ -28,7 +29,8 @@ router = APIRouter(
 # Endpoints for Menu
 
 @router.get('/', response_model=list[MenuRetrieve])
-def get_menus(request: Request, service: MenuService = Depends(get_menu_service)):
+def get_menus(request: Request,
+              service: MenuService = Depends(get_menu_service)) -> list[MenuRetrieve]:
     redis = request.app.state.redis
     menus = redis.lrange('list:menu', 0, -1)
 
@@ -47,14 +49,18 @@ def get_menus(request: Request, service: MenuService = Depends(get_menu_service)
     return menus_retrieve
 
 
-@router.get('/{menu_id}', response_model=MenuRetrieve)
-def get_menu(menu_id: UUID, request: Request, service: MenuService = Depends(get_menu_service)):
+@router.get('/{menu_id}',
+            response_model=MenuRetrieve,
+            responses={**MENU_NOT_FOUND})
+def get_menu(menu_id: UUID,
+             request: Request,
+             service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
     redis = request.app.state.redis
     menu = redis.hgetall(f'{menu_id}::')
 
     if menu:
         menu_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in menu.items()}
-        return menu_utf8
+        return MenuRetrieve(**menu_utf8)
 
     try:
         menu = service.retrieve_one(menu_id)
@@ -67,18 +73,22 @@ def get_menu(menu_id: UUID, request: Request, service: MenuService = Depends(get
 
 
 @router.post('/', status_code=201, response_model=MenuRetrieve)
-def add_menu(data: MenuCreateUpdate, request: Request, service: MenuService = Depends(get_menu_service)):
+def add_menu(data: MenuCreateUpdate,
+             request: Request,
+             service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
     menu = service.create_and_retrieve(data.model_dump())
     request.app.state.redis.delete('list:menu')
 
     return menu.to_pydantic_model()
 
 
-@router.patch('/{menu_id}', response_model=MenuRetrieve)
+@router.patch('/{menu_id}',
+              response_model=MenuRetrieve,
+              responses={**MENU_NOT_FOUND})
 def update_menu(menu_id: UUID,
                 data: MenuCreateUpdate,
                 request: Request,
-                service: MenuService = Depends(get_menu_service)):
+                service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
     try:
         menu = service.update_and_retrieve(menu_id, data.model_dump())
     except NoSuchMenuError:
@@ -91,9 +101,16 @@ def update_menu(menu_id: UUID,
     return menu.to_pydantic_model()
 
 
-@router.delete('/{menu_id}')
-def delete_menu(menu_id: UUID, request: Request, service: MenuService = Depends(get_menu_service)):
-
+@router.delete('/{menu_id}', responses={200: {'description': 'Menu successfully deleted',
+                                              'content': {
+                                                  'application/json': {
+                                                      'example': {'detail': 'menu has been deleted'}
+                                                  }
+                                              }}
+                                        })
+def delete_menu(menu_id: UUID,
+                request: Request,
+                service: MenuService = Depends(get_menu_service)) -> dict:
     service.delete(menu_id)
 
     redis = request.app.state.redis
@@ -114,8 +131,7 @@ def delete_menu(menu_id: UUID, request: Request, service: MenuService = Depends(
 @router.get('/{menu_id}/submenus', response_model=list[SubmenuRetrieve])
 def get_submenus(menu_id: UUID,
                  request: Request,
-                 service: SubmenuService = Depends(get_submenu_service)):
-
+                 service: SubmenuService = Depends(get_submenu_service)) -> list[SubmenuRetrieve]:
     redis = request.app.state.redis
     submenus = redis.lrange('list:submenu', 0, -1)
 
@@ -134,18 +150,19 @@ def get_submenus(menu_id: UUID,
     return submenus_retrieve
 
 
-@router.get('/{menu_id}/submenus/{submenu_id}', response_model=SubmenuRetrieve)
+@router.get('/{menu_id}/submenus/{submenu_id}',
+            response_model=SubmenuRetrieve,
+            responses={**SUBMENU_NOT_FOUND})
 def get_submenu(menu_id: UUID,
                 submenu_id: UUID,
                 request: Request,
-                service: SubmenuService = Depends(get_submenu_service)):
-
+                service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
     redis = request.app.state.redis
     submenu = redis.hgetall(f'{menu_id}:{submenu_id}:')
 
     if submenu:
         submenu_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in submenu.items()}
-        return submenu_utf8
+        return SubmenuRetrieve(**submenu_utf8)
 
     try:
         submenu = service.retrieve_one(submenu_id)
@@ -161,8 +178,7 @@ def get_submenu(menu_id: UUID,
 def add_submenu(menu_id: UUID,
                 data: SubmenuCreateUpdate,
                 request: Request,
-                service: SubmenuService = Depends(get_submenu_service)):
-
+                service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
     data = data.model_dump()
     data['menu_id'] = menu_id
     submenu = service.create_and_retrieve(data)
@@ -176,13 +192,14 @@ def add_submenu(menu_id: UUID,
     return submenu.to_pydantic_model()
 
 
-@router.patch('/{menu_id}/submenus/{submenu_id}', response_model=SubmenuRetrieve)
+@router.patch('/{menu_id}/submenus/{submenu_id}',
+              response_model=SubmenuRetrieve,
+              responses={**SUBMENU_NOT_FOUND})
 def update_submenu(menu_id: UUID,
                    submenu_id: UUID,
                    data: SubmenuCreateUpdate,
                    request: Request,
-                   service: SubmenuService = Depends(get_submenu_service)):
-
+                   service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
     try:
         submenu = service.update_and_retrieve(submenu_id, data.model_dump())
     except NoSuchSubmenuError:
@@ -195,12 +212,19 @@ def update_submenu(menu_id: UUID,
     return submenu.to_pydantic_model()
 
 
-@router.delete('/{menu_id}/submenus/{submenu_id}')
+@router.delete('/{menu_id}/submenus/{submenu_id}',
+               responses={200: {'description': 'Submenu successfully deleted',
+                                'content': {
+                                    'application/json': {
+                                        'example': {
+                                            'detail': 'submenu has been deleted'}
+                                    }
+                                }}
+                          })
 def delete_submenu(menu_id: UUID,
                    submenu_id: UUID,
                    request: Request,
                    service: SubmenuService = Depends(get_submenu_service)) -> dict:
-
     service.delete(submenu_id)
 
     redis = request.app.state.redis
@@ -224,8 +248,7 @@ def delete_submenu(menu_id: UUID,
 def get_dishes(menu_id: UUID,
                submenu_id: UUID,
                request: Request,
-               service: DishService = Depends(get_dish_service)):
-
+               service: DishService = Depends(get_dish_service)) -> list[DishRetrieve]:
     redis = request.app.state.redis
     dishes = redis.lrange('list:dish', 0, -1)
 
@@ -244,19 +267,20 @@ def get_dishes(menu_id: UUID,
     return dishes_retrieve
 
 
-@router.get('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}', response_model=DishRetrieve)
+@router.get('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}',
+            response_model=DishRetrieve,
+            responses={**DISH_NOT_FOUND})
 def get_dish(menu_id: UUID,
              submenu_id: UUID,
              dish_id: UUID,
              request: Request,
-             service: DishService = Depends(get_dish_service)):
-
+             service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     redis = request.app.state.redis
     dish = redis.hgetall(f'{menu_id}:{submenu_id}:{dish_id}')
 
     if dish:
         dish_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in dish.items()}
-        return dish_utf8
+        return DishRetrieve(**dish_utf8)
 
     try:
         dish = service.retrieve_one(dish_id)
@@ -273,8 +297,7 @@ def add_dish(menu_id: UUID,
              submenu_id: UUID,
              data: DishCreateUpdate,
              request: Request,
-             service: DishService = Depends(get_dish_service)):
-
+             service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     data = data.model_dump()
     data['submenu_id'] = submenu_id
 
@@ -292,14 +315,16 @@ def add_dish(menu_id: UUID,
     return dish.to_pydantic_model()
 
 
-@router.patch('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}', response_model=DishRetrieve)
+@router.patch('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}',
+              response_model=DishRetrieve,
+              responses={**DISH_NOT_FOUND}
+              )
 def update_dish(menu_id: UUID,
                 submenu_id: UUID,
                 dish_id: UUID,
                 data: DishCreateUpdate,
                 request: Request,
-                service: DishService = Depends(get_dish_service)):
-
+                service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     try:
         dish = service.update_and_retrieve(dish_id, data.model_dump())
     except NoSuchDishError:
@@ -312,13 +337,20 @@ def update_dish(menu_id: UUID,
     return dish.to_pydantic_model()
 
 
-@router.delete('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}')
+@router.delete('/{menu_id}/submenus/{submenu_id}/dishes/{dish_id}',
+               responses={200: {'description': 'Dish successfully deleted',
+                                'content': {
+                                    'application/json': {
+                                        'example': {
+                                            'detail': 'dish has been deleted'}
+                                    }
+                                }}
+                          })
 def delete_dish(menu_id: UUID,
                 submenu_id: UUID,
                 dish_id: UUID,
                 request: Request,
                 service: DishService = Depends(get_dish_service)) -> dict:
-
     service.delete(dish_id)
 
     redis = request.app.state.redis

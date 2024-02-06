@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import Row, RowMapping, delete, select, update
 
 from src.database import get_db
+from src.menu.models import Base
 
 
 class AbstractRepository(ABC):
@@ -36,7 +37,7 @@ class SQLAlchemyRepository(AbstractRepository):
     def __init__(self, model):
         self.model = model
 
-    def retrieve_list(self) -> Sequence[Row[Any] | RowMapping | Any]:
+    def retrieve_list(self) -> Sequence[Row[Base] | RowMapping | Any]:
         session = next(self.db())
         query = select(self.model)
         result = session.execute(query)
@@ -44,7 +45,7 @@ class SQLAlchemyRepository(AbstractRepository):
 
         return objs
 
-    def retrieve_one(self, pk: UUID):
+    def retrieve_one(self, pk: UUID) -> Base:
         session = next(self.db())
         obj = session.get(self.model, pk)
 
