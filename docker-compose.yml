@@ -7,6 +7,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: always
+    volumes:
+      - ./admin:/api/admin
     networks:
       - my_network
     ports:
@@ -22,6 +24,8 @@ services:
     image: postgres:15.1-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5433:5432"
     environment:
       POSTGRES_USER: "${DB_USER}"
       POSTGRES_PASSWORD: "${DB_PASSWORD}"
@@ -39,12 +43,40 @@ services:
   redis:
     container_name: redis_container
     image: redis:latest
+    ports:
+      - "6380:6379"
     networks:
       - my_network
     restart: always
     volumes:
       - redis_data:/data
     command: redis-server
+
+  celery:
+    container_name: celery_container
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "src.beat", "worker", "-B", "-l", "INFO"]
+    restart: always
+    networks:
+      - my_network
+    volumes:
+      - ./admin:/api/admin
+    depends_on:
+      - rabbit
+      - redis
+      - db
+
+  rabbit:
+    container_name: rabbit_container
+    image: rabbitmq:latest
+    restart: always
+    networks:
+      - my_network
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
 
   api_test:
     container_name: api_container_test
@@ -82,6 +114,8 @@ services:
       - my_network
     restart: always
     command: redis-server
+
+
 
 networks:
   my_network:

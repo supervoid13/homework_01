@@ -2,6 +2,7 @@ import uuid
 from typing import Annotated
 
 from sqlalchemy import ForeignKey
+from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from src.database import engine
@@ -16,7 +17,7 @@ class Base(DeclarativeBase):
 uuid_pk = Annotated[uuid.UUID, mapped_column(primary_key=True, default=uuid.uuid4)]
 
 
-class Menu(Base):
+class Menu(AsyncAttrs, Base):
     __tablename__ = 'menu'
 
     id: Mapped[uuid_pk]
@@ -74,9 +75,7 @@ class Dish(Base):
         )
 
 
-def init_db() -> None:
-    Base.metadata.drop_all(bind=engine, checkfirst=True)
-    Base.metadata.create_all(bind=engine)
-
-
-init_db()
+async def init_db() -> None:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)

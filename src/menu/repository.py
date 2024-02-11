@@ -12,22 +12,22 @@ class MenuRepository(SQLAlchemyRepository):
     def __init__(self):
         super().__init__(Menu)
 
-    def retrieve_list(self) -> list[Menu]:
-        session = next(self.db())
-        query = select(self.model).options(selectinload(self.model.submenus))
-        result = session.execute(query)
-        objs = result.scalars().all()
+    async def retrieve_list(self) -> list[Menu]:
+        async with (self.session_maker() as session):
+            query = select(self.model).options(selectinload(self.model.submenus)
+                                               .selectinload(Submenu.dishes))
+            result = await session.execute(query)
 
-        return objs
+            return result.scalars().all()
 
-    def retrieve_one(self, pk: UUID) -> Menu:
-        session = next(self.db())
-        query = (select(self.model).options(selectinload(self.model.submenus))
-                 .where(self.model.id == pk))
-        res = session.execute(query)
-        obj = res.scalars().first()
+    async def retrieve_one(self, pk: UUID) -> Menu:
+        async with self.session_maker() as session:
+            query = (select(self.model).options(selectinload(self.model.submenus)
+                                                .selectinload(Submenu.dishes))
+                     .where(self.model.id == pk))
+            res = await session.execute(query)
 
-        return obj
+            return res.scalars().first()
 
 
 class SubmenuRepository(SQLAlchemyRepository):
@@ -35,22 +35,20 @@ class SubmenuRepository(SQLAlchemyRepository):
     def __init__(self):
         super().__init__(Submenu)
 
-    def retrieve_list(self) -> list[Submenu]:
-        session = next(self.db())
-        query = select(self.model).options(selectinload(self.model.dishes))
-        result = session.execute(query)
-        objs = result.scalars().all()
+    async def retrieve_list(self) -> list[Submenu]:
+        async with self.session_maker() as session:
+            query = select(self.model).options(selectinload(self.model.dishes))
+            result = await session.execute(query)
 
-        return objs
+            return result.scalars().all()
 
-    def retrieve_one(self, pk: UUID) -> Submenu:
-        session = next(self.db())
-        query = (select(self.model).options(selectinload(self.model.dishes))
-                 .where(self.model.id == pk))
-        res = session.execute(query)
-        obj = res.scalars().first()
+    async def retrieve_one(self, pk: UUID) -> Submenu:
+        async with self.session_maker() as session:
+            query = (select(self.model).options(selectinload(self.model.dishes))
+                     .where(self.model.id == pk))
+            res = await session.execute(query)
 
-        return obj
+            return res.scalars().first()
 
 
 class DishRepository(SQLAlchemyRepository):

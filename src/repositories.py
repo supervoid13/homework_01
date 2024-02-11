@@ -4,74 +4,73 @@ from uuid import UUID
 
 from sqlalchemy import Row, RowMapping, delete, select, update
 
-from src.database import get_db
+from src.database import async_session
 from src.menu.models import Base
 
 
 class AbstractRepository(ABC):
+    session_maker = None
 
     @abstractmethod
-    def retrieve_list(self):
+    async def retrieve_list(self):
         raise NotImplementedError
 
     @abstractmethod
-    def retrieve_one(self, pk: UUID):
+    async def retrieve_one(self, pk: UUID):
         raise NotImplementedError
 
     @abstractmethod
-    def create(self, data: dict):
+    async def create(self, data: dict):
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, pk: UUID, data: dict):
+    async def update(self, pk: UUID, data: dict):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, pk: UUID):
+    async def delete(self, pk: UUID):
         raise NotImplementedError
 
 
 class SQLAlchemyRepository(AbstractRepository):
-    db = get_db
+    session_maker = async_session
 
     def __init__(self, model):
         self.model = model
 
-    def retrieve_list(self) -> Sequence[Row[Base] | RowMapping | Any]:
-        session = next(self.db())
-        query = select(self.model)
-        result = session.execute(query)
-        objs = result.scalars().all()
+    async def retrieve_list(self) -> Sequence[Row[Base] | RowMapping | Any]:
+        async with self.session_maker() as session:
+            query = select(self.model)
+            result = await session.execute(query)
 
-        return objs
+            return result.scalars().all()
 
-    def retrieve_one(self, pk: UUID) -> Base:
-        session = next(self.db())
-        obj = session.get(self.model, pk)
+    async def retrieve_one(self, pk: UUID) -> Base:
+        async with self.session_maker() as session:
+            obj = await session.get(self.model, pk)
 
-        return obj
+            return obj
 
-    def create(self, data: dict) -> UUID:
-        session = next(self.db())
-        obj = self.model(**data)
-        session.add(obj)
-        session.commit()
-        pk = obj.id
+    async def create(self, data: dict) -> UUID:
+        async with self.session_maker() as session:
+            obj = self.model(**data)
+            session.add(obj)
+            await session.commit()
 
-        return pk
+            return obj.id
 
-    def update(self, pk: UUID, data: dict) -> None:
-        session = next(self.db())
-        stmt = (update(self.model)
-                .where(self.model.id == pk)
-                .values(**data)
-                )
+    async def update(self, pk: UUID, data: dict) -> None:
+        async with self.session_maker() as session:
+            stmt = (update(self.model)
+                    .where(self.model.id == pk)
+                    .values(**data)
+                    )
 
-        session.execute(stmt)
-        session.commit()
+            await session.execute(stmt)
+            await session.commit()
 
-    def delete(self, pk: UUID) -> None:
-        session = next(self.db())
-        stmt = delete(self.model).where(self.model.id == pk)
-        session.execute(stmt)
-        session.commit()
+    async def delete(self, pk: UUID) -> None:
+        async with self.session_maker() as session:
+            stmt = delete(self.model).where(self.model.id == pk)
+            await session.execute(stmt)
+            await session.commit()

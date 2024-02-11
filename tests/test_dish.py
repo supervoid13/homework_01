@@ -1,12 +1,13 @@
 import uuid
 
+import pytest
 import utils_test
-from conftest import client, test_data
 from dependencies_test import (
     override_get_dish_service,
     override_get_menu_service,
     override_get_submenu_service,
 )
+from httpx import AsyncClient
 
 from src.main import app
 from src.menu.dependencies import (
@@ -21,24 +22,24 @@ app.dependency_overrides[get_submenu_service] = override_get_submenu_service
 app.dependency_overrides[get_menu_service] = override_get_menu_service
 
 
-def test_get_dishes():
-    menu_id = utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
-    test_data['submenu_data']['menu_id'] = menu_id
-    submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
-    test_data['dish_data']['submenu_id'] = submenu_id
+@pytest.mark.anyio
+async def test_get_dishes(ac: AsyncClient, test_data: dict[str, dict]):
+    menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
+    test_data['submenu_data']['menu_id'] = str(menu_id)
+    submenu_id = await utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
+    test_data['dish_data']['submenu_id'] = str(submenu_id)
 
     get_dishes_url = get_url_from_api_route_name(app,
                                                  'get_dishes',
                                                  menu_id=menu_id,
                                                  submenu_id=submenu_id)
-    response = client.get(get_dishes_url)
-    print(get_dishes_url)
+    response = await ac.get(get_dishes_url)
     assert response.status_code == 200
     assert response.json() == []
 
-    dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])  # Fill the table with data
+    dish_id = await utils_test.fill_dish_table_and_return_id(test_data['dish_data'])  # Fill the table with data
 
-    response = client.get(get_dishes_url)
+    response = await ac.get(get_dishes_url)
     assert response.status_code == 200
 
     body = response.json()[0]
@@ -51,29 +52,30 @@ def test_get_dishes():
                                                   body['price']))
 
 
-def test_get_dish():
-    menu_id = utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
-    test_data['submenu_data']['menu_id'] = menu_id
-    submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
-    test_data['dish_data']['submenu_id'] = submenu_id
+@pytest.mark.anyio
+async def test_get_dish(ac: AsyncClient, test_data: dict[str, dict]):
+    menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
+    test_data['submenu_data']['menu_id'] = str(menu_id)
+    submenu_id = await utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
+    test_data['dish_data']['submenu_id'] = str(submenu_id)
 
     get_dish_url = get_url_from_api_route_name(app,
                                                'get_dish',
                                                menu_id=menu_id,
                                                submenu_id=submenu_id,
                                                dish_id=uuid.uuid4())
-    response = client.get(get_dish_url)
+    response = await ac.get(get_dish_url)
     assert response.status_code == 404
     assert response.json() == {'detail': 'dish not found'}
 
-    dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
+    dish_id = await utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
 
     get_dish_url = get_url_from_api_route_name(app,
                                                'get_dish',
                                                menu_id=menu_id,
                                                submenu_id=submenu_id,
                                                dish_id=dish_id)
-    response = client.get(get_dish_url)
+    response = await ac.get(get_dish_url)
     assert response.status_code == 200
 
     body = response.json()
@@ -86,17 +88,18 @@ def test_get_dish():
                                                   body['price']))
 
 
-def test_add_dish():
-    menu_id = utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
+@pytest.mark.anyio
+async def test_add_dish(ac: AsyncClient, test_data: dict[str, dict]):
+    menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
     test_data['submenu_data']['menu_id'] = str(menu_id)
-    submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
+    submenu_id = await utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
     test_data['dish_data']['submenu_id'] = str(submenu_id)
 
     add_dish_url = get_url_from_api_route_name(app,
                                                'add_dish',
                                                menu_id=menu_id,
                                                submenu_id=submenu_id)
-    response = client.post(add_dish_url, json=test_data['dish_data'])
+    response = await ac.post(add_dish_url, json=test_data['dish_data'])
     assert response.status_code == 201
 
     body = response.json()
@@ -107,20 +110,21 @@ def test_add_dish():
                                                   body['price']))
 
 
-def test_update_dish():
-    menu_id = utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
+@pytest.mark.anyio
+async def test_update_dish(ac: AsyncClient, test_data: dict[str, dict]):
+    menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
     test_data['submenu_data']['menu_id'] = str(menu_id)
-    submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
-    test_data['dish_data']['submenu_id'] = submenu_id
+    submenu_id = await utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
+    test_data['dish_data']['submenu_id'] = str(submenu_id)
 
-    dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
+    dish_id = await utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
 
     update_dish_url = get_url_from_api_route_name(app,
                                                   'update_dish',
                                                   menu_id=menu_id,
                                                   submenu_id=submenu_id,
                                                   dish_id=dish_id)
-    response = client.patch(update_dish_url, json=test_data['update_dish_data'])
+    response = await ac.patch(update_dish_url, json=test_data['update_dish_data'])
     assert response.status_code == 200
 
     body = response.json()
@@ -132,22 +136,23 @@ def test_update_dish():
                                                          body['price']))
 
 
-def test_delete_dish():
-    menu_id = utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
-    test_data['submenu_data']['menu_id'] = menu_id
-    submenu_id = utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
-    test_data['dish_data']['submenu_id'] = submenu_id
+@pytest.mark.anyio
+async def test_delete_dish(ac: AsyncClient, test_data: dict[str, dict]):
+    menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])
+    test_data['submenu_data']['menu_id'] = str(menu_id)
+    submenu_id = await utils_test.fill_submenu_table_and_return_id(test_data['submenu_data'])
+    test_data['dish_data']['submenu_id'] = str(submenu_id)
 
-    dish_id = utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
+    dish_id = await utils_test.fill_dish_table_and_return_id(test_data['dish_data'])
 
     delete_dish_url = get_url_from_api_route_name(app,
                                                   'delete_dish',
                                                   menu_id=menu_id,
                                                   submenu_id=submenu_id,
                                                   dish_id=dish_id)
-    response = client.delete(delete_dish_url)
+    response = await ac.delete(delete_dish_url)
 
     assert response.status_code == 200
 
-    dishes = utils_test.get_dishes()
+    dishes = await utils_test.get_dishes()
     assert dishes == []
