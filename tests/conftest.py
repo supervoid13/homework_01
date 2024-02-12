@@ -19,6 +19,8 @@ engine_test = create_async_engine(
 
 async_session_test = async_sessionmaker(bind=engine_test, expire_on_commit=False)
 
+redis = Redis(host='redis_test', port=6379, db=0)
+
 
 async def override_get_db(*args) -> AsyncGenerator[AsyncSession, None]:
     async with async_session_test() as session:
@@ -27,7 +29,7 @@ async def override_get_db(*args) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture(scope='session', autouse=True)
 async def setup_redis() -> AsyncGenerator:
-    app.state.redis = Redis(host='redis_test', port=6379, db=0)
+    app.state.redis = redis
     yield
     app.state.redis.flushall()
     app.state.redis.close()

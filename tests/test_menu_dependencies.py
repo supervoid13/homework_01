@@ -25,6 +25,7 @@ async def test_get_menus_with_dependencies(ac: AsyncClient, test_data: dict[str,
     url = get_url_from_api_route_name(app, 'get_menus_with_dependencies')
     response = await ac.get(url)
     assert response.status_code == 200
+    print(response.json())
     assert response.json() == []
 
     menu_id = await utils_test.fill_menu_table_and_return_id(test_data['menu_data'])

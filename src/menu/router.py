@@ -28,43 +28,16 @@ router = APIRouter(
 
 @router.get('/', response_model=list[MenuRetrieve])
 async def get_menus(request: Request,
-                    background_redis: BackgroundTasks,
+                    background_tasks: BackgroundTasks,
                     service: MenuService = Depends(get_menu_service)) -> list[MenuRetrieve]:
-    redis = request.app.state.redis
-    menus = redis.lrange('list:menu', 0, -1)
-
-    if menus:
-        menus_utf8 = [menu.decode('utf-8') for menu in menus]
-        menus_retrieve = [MenuRetrieve(**json.loads(menu)) for menu in menus_utf8]
-        return menus_retrieve
-
-    menus = await service.retrieve_list()
-    menus_retrieve = [menu.to_pydantic_model() for menu in menus]
-
-    if menus_retrieve:
-        background_redis.add_task(redis.lpush,
-                                  'list:menu',
-                                  *[json.dumps(menu.model_dump()) for menu in menus_retrieve])
-
-    return menus_retrieve
+    menus = await service.retrieve_list(background_tasks=background_tasks,
+                                        redis=request.app.state.redis)
+    return menus
 
 
 @router.get('/dependencies')
 async def get_menus_with_dependencies(service: MenuService = Depends(get_menu_service)):
     menus_with_dependencies = await service.retrieve_list_with_dependencies()
-
-    discounts = get_discounts()
-
-    for menu in menus_with_dependencies:
-        for submenu in menu.submenus:
-            for dish in submenu.dishes:
-                dish_id = str(dish.id)
-                if str(dish_id) in discounts:
-                    price = float(dish.price)
-                    discount = int(discounts[dish_id])
-                    discount_price = price * (100 - discount) / 100
-                    dish.price = str(discount_price)
-
     return menus_with_dependencies
 
 
@@ -73,36 +46,27 @@ async def get_menus_with_dependencies(service: MenuService = Depends(get_menu_se
             responses={**MENU_NOT_FOUND})
 async def get_menu(menu_id: UUID,
                    request: Request,
-                   background_redis: BackgroundTasks,
+                   background_tasks: BackgroundTasks,
                    service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
-    redis = request.app.state.redis
-    menu = redis.hgetall(f'{menu_id}::')
-
-    if menu:
-        menu_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in menu.items()}
-        return MenuRetrieve(**menu_utf8)
-
     try:
-        menu = await service.retrieve_one(menu_id)
+        menu = await service.retrieve_one(menu_id,
+                                          background_tasks=background_tasks,
+                                          redis=request.app.state.redis)
     except NoSuchMenuError:
         raise HTTPException(status_code=404, detail='menu not found')
 
-    background_redis.add_task(redis.hset,
-                              name=f'{menu_id}::',
-                              mapping=menu.to_pydantic_model().model_dump())
-
-    return menu.to_pydantic_model()
+    return menu
 
 
 @router.post('/', status_code=201, response_model=MenuRetrieve)
 async def add_menu(data: MenuCreateUpdate,
                    request: Request,
-                   background_redis: BackgroundTasks,
+                   background_tasks: BackgroundTasks,
                    service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
-    menu = await service.create_and_retrieve(data.model_dump())
-    background_redis.add_task(request.app.state.redis.delete, 'list:menu')
-
-    return menu.to_pydantic_model()
+    menu = await service.create_and_retrieve(data.model_dump(),
+                                             background_tasks=background_tasks,
+                                             redis=request.app.state.redis)
+    return menu
 
 
 @router.patch('/{menu_id}',
@@ -111,18 +75,17 @@ async def add_menu(data: MenuCreateUpdate,
 async def update_menu(menu_id: UUID,
                       data: MenuCreateUpdate,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: MenuService = Depends(get_menu_service)) -> MenuRetrieve:
     try:
-        menu = await service.update_and_retrieve(menu_id, data.model_dump())
+        menu = await service.update_and_retrieve(menu_id,
+                                                 data.model_dump(),
+                                                 background_tasks=background_tasks,
+                                                 redis=request.app.state.redis)
     except NoSuchMenuError:
         raise HTTPException(status_code=404, detail='menu not found')
 
-    redis = request.app.state.redis
-    background_redis.add_task(redis.delete, f'{menu_id}::')
-    background_redis.add_task(redis.delete, 'list:menu')
-
-    return menu.to_pydantic_model()
+    return menu
 
 
 @router.delete('/{menu_id}', responses={200: {'description': 'Menu successfully deleted',
@@ -134,13 +97,11 @@ async def update_menu(menu_id: UUID,
                                         })
 async def delete_menu(menu_id: UUID,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: MenuService = Depends(get_menu_service)) -> dict:
-    await service.delete(menu_id)
-
-    redis = request.app.state.redis
-    background_redis.add_task(delete_if_keys_exists, redis, 'list:*')
-    background_redis.add_task(delete_if_keys_exists, redis, f'{menu_id}:*:*')
+    await service.delete(menu_id,
+                         background_tasks=background_tasks,
+                         redis=request.app.state.redis)
 
     return {'detail': 'menu has been deleted'}
 
@@ -150,25 +111,12 @@ async def delete_menu(menu_id: UUID,
 @router.get('/{menu_id}/submenus', response_model=list[SubmenuRetrieve])
 async def get_submenus(menu_id: UUID,
                        request: Request,
-                       background_redis: BackgroundTasks,
+                       background_tasks: BackgroundTasks,
                        service: SubmenuService = Depends(get_submenu_service)) -> list[SubmenuRetrieve]:
-    redis = request.app.state.redis
-    submenus = redis.lrange('list:submenu', 0, -1)
-
-    if submenus:
-        submenus_utf8 = [submenu.decode('utf-8') for submenu in submenus]
-        submenus_retrieve = [SubmenuRetrieve(**json.loads(submenu)) for submenu in submenus_utf8]
-        return submenus_retrieve
-
-    submenus = await service.retrieve_list_by_menu_id(menu_id)
-    submenus_retrieve = [submenu.to_pydantic_model() for submenu in submenus]
-
-    if submenus_retrieve:
-        background_redis.add_task(redis.lpush,
-                                  'list:submenu',
-                                  *[json.dumps(submenu.model_dump()) for submenu in submenus_retrieve])
-
-    return submenus_retrieve
+    submenus = await service.retrieve_list_by_menu_id(menu_id,
+                                                      background_tasks=background_tasks,
+                                                      redis=request.app.state.redis)
+    return submenus
 
 
 @router.get('/{menu_id}/submenus/{submenu_id}',
@@ -177,44 +125,33 @@ async def get_submenus(menu_id: UUID,
 async def get_submenu(menu_id: UUID,
                       submenu_id: UUID,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
-    redis = request.app.state.redis
-    submenu = redis.hgetall(f'{menu_id}:{submenu_id}:')
-
-    if submenu:
-        submenu_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in submenu.items()}
-        return SubmenuRetrieve(**submenu_utf8)
-
     try:
-        submenu = await service.retrieve_one(submenu_id)
+        submenu = await service.retrieve_one(submenu_id,
+                                             background_tasks=background_tasks,
+                                             menu_id=menu_id,
+                                             redis=request.app.state.redis)
     except NoSuchSubmenuError:
         raise HTTPException(status_code=404, detail='submenu not found')
 
-    background_redis.add_task(redis.hset,
-                              name=f'{menu_id}:{submenu_id}:',
-                              mapping=submenu.to_pydantic_model().model_dump())
-
-    return submenu.to_pydantic_model()
+    return submenu
 
 
 @router.post('/{menu_id}/submenus', status_code=201, response_model=SubmenuRetrieve)
 async def add_submenu(menu_id: UUID,
                       data: SubmenuCreateUpdate,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
     data = data.model_dump()
     data['menu_id'] = menu_id
-    submenu = await service.create_and_retrieve(data)
+    submenu = await service.create_and_retrieve(data,
+                                                background_tasks=background_tasks,
+                                                menu_id=menu_id,
+                                                redis=request.app.state.redis)
 
-    redis = request.app.state.redis
-
-    background_redis.add_task(redis.delete, 'list:menu')
-    background_redis.add_task(redis.delete, 'list:submenu')
-    background_redis.add_task(redis.delete, f'{menu_id}::')
-
-    return submenu.to_pydantic_model()
+    return submenu
 
 
 @router.patch('/{menu_id}/submenus/{submenu_id}',
@@ -224,18 +161,18 @@ async def update_submenu(menu_id: UUID,
                          submenu_id: UUID,
                          data: SubmenuCreateUpdate,
                          request: Request,
-                         background_redis: BackgroundTasks,
+                         background_tasks: BackgroundTasks,
                          service: SubmenuService = Depends(get_submenu_service)) -> SubmenuRetrieve:
     try:
-        submenu = await service.update_and_retrieve(submenu_id, data.model_dump())
+        submenu = await service.update_and_retrieve(submenu_id,
+                                                    data.model_dump(),
+                                                    background_tasks=background_tasks,
+                                                    menu_id=menu_id,
+                                                    redis=request.app.state.redis)
     except NoSuchSubmenuError:
         raise HTTPException(status_code=404, detail='submenu not found')
 
-    redis = request.app.state.redis
-    background_redis.add_task(redis.delete, f'{menu_id}:{submenu_id}:')
-    background_redis.add_task(redis.delete, 'list:submenu')
-
-    return submenu.to_pydantic_model()
+    return submenu
 
 
 @router.delete('/{menu_id}/submenus/{submenu_id}',
@@ -250,15 +187,12 @@ async def update_submenu(menu_id: UUID,
 async def delete_submenu(menu_id: UUID,
                          submenu_id: UUID,
                          request: Request,
-                         background_redis: BackgroundTasks,
+                         background_tasks: BackgroundTasks,
                          service: SubmenuService = Depends(get_submenu_service)) -> dict:
-    await service.delete(submenu_id)
-
-    redis = request.app.state.redis
-
-    background_redis.add_task(delete_if_keys_exists, redis, 'list:*')
-    background_redis.add_task(redis.delete, f'{menu_id}::')
-    background_redis.add_task(delete_if_keys_exists, redis, f'{menu_id}:{submenu_id}:*')
+    await service.delete(submenu_id,
+                         background_tasks=background_tasks,
+                         menu_id=menu_id,
+                         redis=request.app.state.redis)
 
     return {'detail': 'submenu has been deleted'}
 
@@ -269,7 +203,7 @@ async def delete_submenu(menu_id: UUID,
 async def get_dishes(menu_id: UUID,
                      submenu_id: UUID,
                      request: Request,
-                     background_redis: BackgroundTasks,
+                     background_tasks: BackgroundTasks,
                      service: DishService = Depends(get_dish_service)) -> list[DishRetrieve]:
     redis = request.app.state.redis
     dishes = redis.lrange('list:dish', 0, -1)
@@ -282,7 +216,7 @@ async def get_dishes(menu_id: UUID,
         dishes_retrieve = [dish.to_pydantic_model() for dish in dishes]
 
         if dishes_retrieve:
-            background_redis.add_task(redis.lpush,
+            background_tasks.add_task(redis.lpush,
                                       'list:dish',
                                       *[json.dumps(dish.model_dump()) for dish in dishes_retrieve])
     if dishes_retrieve:
@@ -304,7 +238,7 @@ async def get_dish(menu_id: UUID,
                    submenu_id: UUID,
                    dish_id: UUID,
                    request: Request,
-                   background_redis: BackgroundTasks,
+                   background_tasks: BackgroundTasks,
                    service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     redis = request.app.state.redis
     dish = redis.hgetall(f'{menu_id}:{submenu_id}:{dish_id}')
@@ -318,7 +252,7 @@ async def get_dish(menu_id: UUID,
         except NoSuchDishError:
             raise HTTPException(status_code=404, detail='dish not found')
 
-        background_redis.add_task(redis.hset,
+        background_tasks.add_task(redis.hset,
                                   name=f'{menu_id}:{submenu_id}:{dish_id}',
                                   mapping=dish.to_pydantic_model().model_dump())
 
@@ -340,7 +274,7 @@ async def add_dish(menu_id: UUID,
                    submenu_id: UUID,
                    data: DishCreateUpdate,
                    request: Request,
-                   background_redis: BackgroundTasks,
+                   background_tasks: BackgroundTasks,
                    service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     data = data.model_dump()
     data['submenu_id'] = submenu_id
@@ -348,10 +282,10 @@ async def add_dish(menu_id: UUID,
     dish = await service.create_and_retrieve(data)
 
     redis = request.app.state.redis
-    background_redis.add_task(delete_if_keys_exists, redis, 'list:*')
+    background_tasks.add_task(delete_if_keys_exists, redis, 'list:*')
 
-    background_redis.add_task(redis.delete, f'{menu_id}::')
-    background_redis.add_task(redis.delete, f'{menu_id}:{submenu_id}:')
+    background_tasks.add_task(redis.delete, f'{menu_id}::')
+    background_tasks.add_task(redis.delete, f'{menu_id}:{submenu_id}:')
 
     return dish.to_pydantic_model()
 
@@ -365,7 +299,7 @@ async def update_dish(menu_id: UUID,
                       dish_id: UUID,
                       data: DishCreateUpdate,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: DishService = Depends(get_dish_service)) -> DishRetrieve:
     try:
         dish = await service.update_and_retrieve(dish_id, data.model_dump())
@@ -373,8 +307,8 @@ async def update_dish(menu_id: UUID,
         raise HTTPException(status_code=404, detail='dish not found')
 
     redis = request.app.state.redis
-    background_redis.add_task(redis.delete, f'{menu_id}:{submenu_id}:{dish_id}')
-    background_redis.add_task(redis.delete, 'list:dish')
+    background_tasks.add_task(redis.delete, f'{menu_id}:{submenu_id}:{dish_id}')
+    background_tasks.add_task(redis.delete, 'list:dish')
 
     return dish.to_pydantic_model()
 
@@ -392,15 +326,15 @@ async def delete_dish(menu_id: UUID,
                       submenu_id: UUID,
                       dish_id: UUID,
                       request: Request,
-                      background_redis: BackgroundTasks,
+                      background_tasks: BackgroundTasks,
                       service: DishService = Depends(get_dish_service)) -> dict:
     await service.delete(dish_id)
 
     redis = request.app.state.redis
-    background_redis.add_task(delete_if_keys_exists, redis, 'list:*')
+    background_tasks.add_task(delete_if_keys_exists, redis, 'list:*')
 
-    background_redis.add_task(redis.delete, f'{menu_id}::')
-    background_redis.add_task(redis.delete, f'{menu_id}:{submenu_id}:')
-    background_redis.add_task(redis.delete, f'{menu_id}:{submenu_id}:{dish_id}')
+    background_tasks.add_task(redis.delete, f'{menu_id}::')
+    background_tasks.add_task(redis.delete, f'{menu_id}:{submenu_id}:')
+    background_tasks.add_task(redis.delete, f'{menu_id}:{submenu_id}:{dish_id}')
 
     return {'detail': 'dish has been deleted'}
