@@ -53,6 +53,18 @@ async def get_menus(request: Request,
 async def get_menus_with_dependencies(service: MenuService = Depends(get_menu_service)):
     menus_with_dependencies = await service.retrieve_list_with_dependencies()
 
+    discounts = get_discounts()
+
+    for menu in menus_with_dependencies:
+        for submenu in menu.submenus:
+            for dish in submenu.dishes:
+                dish_id = str(dish.id)
+                if str(dish_id) in discounts:
+                    price = float(dish.price)
+                    discount = int(discounts[dish_id])
+                    discount_price = price * (100 - discount) / 100
+                    dish.price = str(discount_price)
+
     return menus_with_dependencies
 
 
