@@ -33,7 +33,7 @@ async def get_menus(request: Request,
 
 
 @router.get('/dependencies')
-async def get_menus_with_dependencies(service: MenuService = Depends(get_menu_service)) -> list:
+async def get_menus_with_dependencies(service: MenuService = Depends(get_menu_service)):
     menus_with_dependencies = await service.retrieve_list_with_dependencies()
     return menus_with_dependencies
 
