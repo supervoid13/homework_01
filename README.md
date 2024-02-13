@@ -34,5 +34,5 @@
 3. Celery task: `/src/beat.py::synchronize_from_doc`
 
 ### Dish discount (point 6**)
-1. Retrieving a dict `discounts` (key - dish_id, value - discount)
-2. Current prices are checked directly in the routers.
+1. Retrieving a dict `discounts` (key - dish_id, value - discount) in `/src/menu/utils.py:get_discounts`
+2. Current prices are checked directly in the DishService: `/src/menu/service.py:DishService`
