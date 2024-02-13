@@ -4,8 +4,7 @@ import openpyxl
 def get_rows() -> list[list[str]]:
     book = openpyxl.load_workbook('admin/MenuSheets.xlsx', read_only=True)
     sheet = book.active
-    cells = sheet['A1':'G18']  # type: ignore
-    values = [[e.value for e in cell] for cell in cells]
+    values = [[e for e in row] for row in sheet.values]
     book.close()
 
     return values

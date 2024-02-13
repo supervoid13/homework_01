@@ -36,7 +36,7 @@ class Menu(AsyncAttrs, Base):
         )
 
 
-class Submenu(Base):
+class Submenu(AsyncAttrs, Base):
     __tablename__ = 'submenu'
 
     id: Mapped[uuid_pk]
@@ -56,7 +56,7 @@ class Submenu(Base):
         )
 
 
-class Dish(Base):
+class Dish(AsyncAttrs, Base):
     __tablename__ = 'dish'
 
     id: Mapped[uuid_pk]

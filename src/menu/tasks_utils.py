@@ -17,11 +17,12 @@ async def synchronize(values: list[list], redis: Redis) -> None:
 
     # Collect menus, submenus and dishes from document
     for row in values:
-        start_index = 0
-        for i in range(len(row)):
-            if row[i]:
-                start_index = i
-                break
+        start_index = 4  # Any number > 3 to avoid all checks
+        if any(row):
+            for i in range(len(row)):
+                if row[i]:
+                    start_index = i
+                    break
 
         if start_index < 1:  # then it's menu
             [s_id, s_title, s_desc] = row[:3]
@@ -31,7 +32,7 @@ async def synchronize(values: list[list], redis: Redis) -> None:
             [_, s_id, s_title, s_desc] = row[:4]
             s_submenus[s_id] = {'title': s_title, 'description': s_desc, 'menu_id': current_menu}
             current_submenu = s_id
-        else:  # then it's dish
+        elif start_index < 3:  # then it's dish
             [_, _, s_id, s_title, s_desc, s_price] = row[:6]
             s_dishes[s_id] = {
                 'title': s_title,

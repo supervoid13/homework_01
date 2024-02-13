@@ -7,7 +7,7 @@ from sqlalchemy.sql.selectable import Select
 from .models import Dish, Menu, Submenu
 
 
-def count_submenus_and_dishes_in_one_request_menu(*, menu_id: UUID | None = None):
+def count_submenus_and_dishes_in_one_request_menu(*, menu_id: UUID | None = None) -> Select:
     major_query = (select(Menu,
                           func.count(distinct(Submenu.id).label('submenus_count')),
                           func.count(distinct(Dish.id)).label('dishes_count'))

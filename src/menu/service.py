@@ -1,5 +1,8 @@
 import json
+from typing import Any, Sequence
 from uuid import UUID
+
+from sqlalchemy import Row, RowMapping
 
 from src.menu.exceptions import (
     NoSuchDishError,
@@ -12,7 +15,7 @@ from src.repositories import AbstractRepository
 
 from .crud import get_all_data_query
 from .redis_utils import delete_if_keys_exists
-from .schemas import MenuRetrieve, SubmenuRetrieve
+from .schemas import DishRetrieve, MenuRetrieve, SubmenuRetrieve
 from .utils import get_discounts
 
 
@@ -22,7 +25,7 @@ class RestaurantService:
     def __init__(self, repository: AbstractRepository):
         self.repository = repository
 
-    async def retrieve_list(self, **kwargs) -> list[Menu | Submenu | Dish]:
+    async def retrieve_list(self, **kwargs) -> Sequence[Row[Menu | Submenu | Dish] | RowMapping | Any]:
         return await self.repository.retrieve_list()
 
     async def retrieve_one(self, pk: UUID, **kwargs) -> Menu | Submenu | Dish:
@@ -203,7 +206,97 @@ class SubmenuService(RestaurantService):
 class DishService(RestaurantService):
     exception = NoSuchDishError
 
-    async def retrieve_list_by_submenu_id(self, submenu_id: UUID) -> list[Submenu]:
-        dishes = await self.repository.retrieve_list()
+    async def retrieve_list_by_submenu_id(self, submenu_id: UUID, **kwargs) -> list[DishRetrieve]:
+        redis = kwargs['redis']
+        dishes = redis.lrange('list:dish', 0, -1)
 
-        return [dish for dish in dishes if dish.submenu_id == submenu_id]
+        if dishes:
+            dishes_utf8 = [dish.decode('utf-8') for dish in dishes]
+            dishes_retrieve = [DishRetrieve(**json.loads(dish)) for dish in dishes_utf8]
+        else:
+            dishes = await self.repository.retrieve_list()
+            dishes = [dish for dish in dishes if dish.submenu_id == submenu_id]
+            dishes_retrieve = [dish.to_pydantic_model() for dish in dishes]
+
+            if dishes_retrieve:
+                kwargs['background_tasks'].add_task(redis.lpush,
+                                                    'list:dish',
+                                                    *[json.dumps(dish.model_dump()) for dish in dishes_retrieve])
+        if dishes_retrieve:
+            discounts = get_discounts()
+            for dish_retrieve in dishes_retrieve:
+                if dish_retrieve.id in discounts:
+                    price = float(dish_retrieve.price)
+                    discount = int(discounts[dish_retrieve.id])
+                    discount_price = price * (100 - discount) / 100
+                    dish_retrieve.price = str(discount_price)
+
+        return dishes_retrieve
+
+    async def retrieve_one(self, pk: UUID, **kwargs) -> DishRetrieve:
+        redis = kwargs['redis']
+        menu_id = kwargs['menu_id']
+        submenu_id = kwargs['submenu_id']
+
+        dish = redis.hgetall(f'{menu_id}:{submenu_id}:{pk}')
+
+        if dish:
+            dish_utf8 = {k.decode('utf-8'): v.decode('utf-8') for k, v in dish.items()}
+            dish_retrieve = DishRetrieve(**dish_utf8)
+        else:
+            dish = await super().retrieve_one(pk)
+
+            kwargs['background_tasks'].add_task(redis.hset,
+                                                name=f'{menu_id}:{submenu_id}:{pk}',
+                                                mapping=dish.to_pydantic_model().model_dump())
+
+            dish_retrieve = dish.to_pydantic_model()
+
+        discounts = get_discounts()
+
+        if dish_retrieve.id in discounts:
+            price = float(dish_retrieve.price)
+            discount = int(discounts[dish_retrieve.id])
+            discount_price = price * (100 - discount) / 100
+            dish_retrieve.price = str(discount_price)
+
+        return dish_retrieve
+
+    async def create_and_retrieve(self, data: dict, **kwargs) -> DishRetrieve:
+        redis = kwargs['redis']
+        menu_id = kwargs['menu_id']
+        submenu_id = kwargs['submenu_id']
+
+        dish = await super().create_and_retrieve(data)
+
+        kwargs['background_tasks'].add_task(delete_if_keys_exists, redis, 'list:*')
+
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}::')
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}:{submenu_id}:')
+
+        return dish.to_pydantic_model()
+
+    async def update_and_retrieve(self, pk: UUID, data: dict, **kwargs) -> DishRetrieve:
+        redis = kwargs['redis']
+        menu_id = kwargs['menu_id']
+        submenu_id = kwargs['submenu_id']
+
+        dish = await super().update_and_retrieve(pk, data)
+
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}:{submenu_id}:{pk}')
+        kwargs['background_tasks'].add_task(redis.delete, 'list:dish')
+
+        return dish.to_pydantic_model()
+
+    async def delete(self, pk: UUID, **kwargs) -> None:
+        redis = kwargs['redis']
+        menu_id = kwargs['menu_id']
+        submenu_id = kwargs['submenu_id']
+
+        await super().delete(pk)
+
+        kwargs['background_tasks'].add_task(delete_if_keys_exists, redis, 'list:*')
+
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}::')
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}:{submenu_id}:')
+        kwargs['background_tasks'].add_task(redis.delete, f'{menu_id}:{submenu_id}:{pk}')
