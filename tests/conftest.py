@@ -45,7 +45,7 @@ async def setup_db() -> AsyncGenerator:
 
 
 @pytest.fixture(scope='session')
-def anyio_backend():
+def anyio_backend() -> str:
     return 'asyncio'
 
 

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from menu.models import Dish, Menu, Submenu
 
 
-async def fill_menu_table_and_return_id(data) -> UUID:
+async def fill_menu_table_and_return_id(data: dict[str, dict]) -> UUID:
     async with async_session_test() as session:
         menu = Menu(**data)
         session.add(menu)
@@ -16,7 +16,7 @@ async def fill_menu_table_and_return_id(data) -> UUID:
         return menu.id
 
 
-async def fill_submenu_table_and_return_id(data) -> UUID:
+async def fill_submenu_table_and_return_id(data: dict[str, dict]) -> UUID:
     async with async_session_test() as session:
         submenu = Submenu(**data)
         session.add(submenu)
@@ -25,7 +25,7 @@ async def fill_submenu_table_and_return_id(data) -> UUID:
         return submenu.id
 
 
-async def fill_dish_table_and_return_id(data) -> UUID:
+async def fill_dish_table_and_return_id(data: dict[str, dict]) -> UUID:
     async with async_session_test() as session:
         dish = Dish(**data)
         session.add(dish)
